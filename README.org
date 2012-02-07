@@ -1,0 +1,5 @@
+Misc tools I have wrote.
+
+* git/
+
+The git subdirs currently contains a hook for git. The "update" hook.
