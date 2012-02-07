@@ -22,6 +22,7 @@ my @IGNORED_FILES = ("ChangeLog", ".gitignore", "NEWS",
 # Internal global.
 our %g_IGNORED_FILES;
 my $nb_error = 0;
+my $warning = 0;
 
 # I found the way to initialize an array more user-friendly than
 # a hash table. So the user have to fill an array, and I translate
@@ -99,7 +100,7 @@ sub check_log_style($$$)
           and $message !~ /\s*\*[^:]+:.+\n\s*\*/m);
 
   push @error, "Line exceeds 72 characters."
-      if $message =~ /^.{72,}$/m;
+      if $message =~ /^.{73,}$/m;
 
 
   # Check if the format "* file:" is checked. Only a little test
@@ -162,7 +163,7 @@ sub main
 
 
   # Here, we decide if which branch we'll check.
-  return 0 if $branch =~ m#/#
+  $warning = 1 if $branch =~ m#/#
       and $branch !~ m/candidates/;
 
   # Will contain all the sha1 of the commits which must be checked.
@@ -175,7 +176,7 @@ sub main
 
   my $other_branches =
       `git for-each-ref --format='%(refname)' refs/heads |
-        grep -F -x -v $refname`;
+        grep -F -x -v $refname | grep -x 'refs/heads/\\(candidates/.*\\|[^/]*\\)'`;
 
   # Other branches is a list of branches if the format:
   # "branch\nbranch\n". But it makes the next call fail because of
@@ -192,11 +193,14 @@ sub main
     chomp;
 
     # Get the list of modified files.
+    # "git show commit" shows the log and the changed file.
+    # --pretty="format:" makes the log print nothing. So I get the
+    # changed file! :)
     my $fileList = `git show --pretty="format:" --name-only $_`;
     $fileList =~ tr/\n/ /;
 
     # Get the commit log. Without the header.
-    my $commitLog = `git log -1 $_ | sed -e '1d; 2d; 3d; 4d;'`;
+    my $commitLog = `git log -1 --pretty=format:%B $_`;
 
     # Apply the checks on the commit.
     check_log_style($fileList, $commitLog, $_);
@@ -208,51 +212,4 @@ sub main
 init();
 main();
 
-exit 1 if $nb_error;
-
-
-
-
-
-# OLD:
-
-  # # If new branch, we are in a tricky case.
-  # if ($oldrev eq $zero)
-  # {
-
-  #   # `git log --pretty=oneline master..$newrev` make a diff in the
-  #   # history with the new commit and master.
-  #   # ---x---y---z master
-  #   #             \
-  #   #              a---b---c new branch.
-  #   # Called with $newrev = c, we'll got the sha1 of a, b and c.  One
-  #   # line is to have an output formatted like this: "sha1 Title". Awk
-  #   # help us to only have the sha1.
-  #   foreach (`git log --pretty=oneline master..$newrev |awk ' { print \$1; }'`)
-  #   {
-  #     chomp;
-
-  #     # `git branch --contains sha1` allow us to know the name of each
-  #     # branch which contains this commit.
-  #     my $number_branchs = `git branch --contains $_`;
-
-  #     # FIXME: I don't understand why $number_branchs is empty when
-  #     # only one branch... It works, but I don't know why.
-
-  #     # "($str =~ tr/\n/\n/) + 1" count the number of lines in a
-  #     # string.  If there is more than one branch which contains this
-  #     # commit, and because we are the server (so the other are
-  #     # considered valid) we stop the list of commits.
-  #     last if (($number_branchs =~ tr/\n/\n/) > 0);
-
-  #     push @commits, $_;
-  #   }
-  # }
-  # # Else, just get the rev-list.
-  # else
-  # {
-  #   foreach (`git rev-list $oldrev..$newrev`)
-  #   {
-  #     push @commits, $_;
-  #   }
-  # }
+exit 1 if $nb_error and $warning == 0;
