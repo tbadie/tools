@@ -1,5 +1,19 @@
-Misc tools I have wrote.
+Misc tools I wrote.
 
 * git/
 
-The git subdirs currently contains a hook for git. The "update" hook.
+  The git subdirs currently contains a hook for git. The "update" hook.
+
+** update
+
+This script is intended to check the format of the log message.
+
+ The following things are checked:
+
+- Each changed files are mentioned (there is a list of ignored file).
+- There must be at least one entry (unless there is no interesting
+  file in the commit).
+- There is one semicolon between two entries.
+- There is less than 72 columns in the log message.
+- There must be a title.
+- No space before the semicolon (in French, there is one).

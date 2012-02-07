@@ -98,6 +98,8 @@ sub check_log_style($$$)
       if ($message =~ /\s*\*[^:]+.+\n\s*\*/m
           and $message !~ /\s*\*[^:]+:.+\n\s*\*/m);
 
+  push @error, "Line exceeds 72 characters."
+      if $message =~ /^.{72,}$/m;
 
 
   # Check if the format "* file:" is checked. Only a little test
