@@ -1,0 +1,256 @@
+#! /usr/bin/perl -w
+
+# Hook for checking the log format given to git.
+# Written by Thomas "Enki" Badie <badie@lrde.epita.fr>
+
+# This hook prevents push containing invalid logs to be pushed on the
+# server.
+
+# To add a check, find a spot in "check_log_style", and add your own
+# chunk. You have to add your errors in the @errors. Without newline.
+
+use strict;
+
+# The classical argv[0], without the relative path.
+(my $ME = $0) =~ s|.*/||;
+
+# The list of ignored files... Add your own here.
+my @IGNORED_FILES = ("ChangeLog", ".gitignore", "NEWS",
+    "THANKS");
+
+
+# Internal global.
+our %g_IGNORED_FILES;
+my $nb_error = 0;
+
+# I found the way to initialize an array more user-friendly than
+# a hash table. So the user have to fill an array, and I translate
+# it into a hash to be quicker.
+sub init
+{
+  foreach (@IGNORED_FILES)
+  {
+    $g_IGNORED_FILES{$_} = "t";
+  }
+}
+
+
+sub print_usage()
+{
+  print "usage:\n$ME <ref> <oldrev> <newrev>\n";
+}
+
+
+## The function which contains all the style check.
+## String which is the concatenation of all the file.
+## Receive the log message in raw.
+## The SHA1 of the commit.
+sub check_log_style($$$)
+{
+  my ($list, $message, $sha) = @_;
+
+  # In this hash table, we'll add all the modified files,
+  # and we do not add the files like "ChangeLog" etc...
+  # The list of these files is the global variable
+  # @IGNORED_FILES
+  my @files;
+
+  foreach (split ' ', $list)
+  {
+    my $long_name = $_;
+    s|.*/||;
+    push @files, $long_name
+        unless defined $g_IGNORED_FILES{$_};
+  }
+
+  # In the case of only commit a ignored file.
+  return 0 unless @files ;
+
+  # Will contain all error messages.
+  my @error;
+
+  # In this loop, we check that the file is written in the log
+  # message.
+  # We can check it better by checking only in the part
+  # "* ...... :" in the message, but maybe it is too much.
+  foreach (@files)
+  {
+    if ($message !~ /$_/)
+    {
+      push @error, "`$_' is not mentioned in commit message.";
+    }
+  }
+
+
+  # Now we check if there is a first-line summary.
+  # We reuse the trick used in vc-dwim. If the first line contain
+  # a star, it means there is nno one-line summary.
+  push @error, "Missing one-line summary." if $message =~ /^[\s\n]*\* /;
+
+
+  # Now we check the style of the "* file (func):". The way we choose is
+  # to check if we have:
+  # "* file desc whatever
+  # *"
+  # And in this case, we check if we don't have a semicolon between
+  # the two.
+  push @error, "Missing `:' between two entries."
+      if ($message =~ /\s*\*[^:]+.+\n\s*\*/m
+          and $message !~ /\s*\*[^:]+:.+\n\s*\*/m);
+
+
+
+  # Check if the format "* file:" is checked. Only a little test
+  # because we do not want to have false positive.
+  # The regexp we check is a star as first character of a line.
+  push @error, "No entry found in commit message."
+      if $message !~ /^\s*\*/m;
+
+
+  push @error, "No space before colon in English."
+      if $message =~ /\s:/;
+
+  # SPOT !
+  push @error, "accepting -> acceptance."
+      if $message =~ /\baccepting\s+cond/im;
+
+
+  # Print the results of the check.
+  print STDERR "* Invalid message for commit $sha:\n" if ($#error + 1);
+
+  foreach (@error)
+  {
+    print STDERR "** $_\n";
+  }
+
+  $nb_error += $#error + 1;
+}
+
+
+
+# Get the information from the command line.
+my $refname = $ARGV[0];
+my $oldrev = $ARGV[1];
+my $newrev = $ARGV[2];
+
+
+# The main get the list of commit and call the checker for each
+# commit.
+sub main
+{
+  if (not defined $refname
+      || not defined $oldrev
+      || not defined $newrev)
+  {
+    print_usage;
+    exit 1;
+  }
+
+  # 80 columns :)
+  my $zero="0000000000000000000000000000000000000000";
+
+  # It is a branch deletion. Nothing to say about this.
+  if ($newrev eq $zero)
+  {
+    return 0;
+  }
+
+  # We want the name of the branch.
+  (my $branch = $refname) =~ s+refs/heads/++;
+
+
+  # Here, we decide if which branch we'll check.
+  return 0 if $branch =~ m#/#
+      and $branch !~ m/candidates/;
+
+  # Will contain all the sha1 of the commits which must be checked.
+  my @commits;
+
+  my $revspec = undef;
+
+  $revspec = "$newrev" if $oldrev eq $zero;
+  $revspec = "$oldrev..$newrev" if not defined $revspec;
+
+  my $other_branches =
+      `git for-each-ref --format='%(refname)' refs/heads |
+        grep -F -x -v $refname`;
+
+  # Other branches is a list of branches if the format:
+  # "branch\nbranch\n". But it makes the next call fail because of
+  # parse error. So We remove the newline.
+  $other_branches =~ y/\n/ /;
+
+  my $new_revisions=`git rev-parse --not $other_branches |
+    git rev-list --stdin $revspec`;
+
+  @commits = split '\n', $new_revisions;
+
+  foreach (@commits)
+  {
+    chomp;
+
+    # Get the list of modified files.
+    my $fileList = `git show --pretty="format:" --name-only $_`;
+    $fileList =~ tr/\n/ /;
+
+    # Get the commit log. Without the header.
+    my $commitLog = `git log -1 $_ | sed -e '1d; 2d; 3d; 4d;'`;
+
+    # Apply the checks on the commit.
+    check_log_style($fileList, $commitLog, $_);
+  }
+}
+
+# Initialize the hash map of file ignore. Better complexity to find
+# if an element in present.
+init();
+main();
+
+exit 1 if $nb_error;
+
+
+
+
+
+# OLD:
+
+  # # If new branch, we are in a tricky case.
+  # if ($oldrev eq $zero)
+  # {
+
+  #   # `git log --pretty=oneline master..$newrev` make a diff in the
+  #   # history with the new commit and master.
+  #   # ---x---y---z master
+  #   #             \
+  #   #              a---b---c new branch.
+  #   # Called with $newrev = c, we'll got the sha1 of a, b and c.  One
+  #   # line is to have an output formatted like this: "sha1 Title". Awk
+  #   # help us to only have the sha1.
+  #   foreach (`git log --pretty=oneline master..$newrev |awk ' { print \$1; }'`)
+  #   {
+  #     chomp;
+
+  #     # `git branch --contains sha1` allow us to know the name of each
+  #     # branch which contains this commit.
+  #     my $number_branchs = `git branch --contains $_`;
+
+  #     # FIXME: I don't understand why $number_branchs is empty when
+  #     # only one branch... It works, but I don't know why.
+
+  #     # "($str =~ tr/\n/\n/) + 1" count the number of lines in a
+  #     # string.  If there is more than one branch which contains this
+  #     # commit, and because we are the server (so the other are
+  #     # considered valid) we stop the list of commits.
+  #     last if (($number_branchs =~ tr/\n/\n/) > 0);
+
+  #     push @commits, $_;
+  #   }
+  # }
+  # # Else, just get the rev-list.
+  # else
+  # {
+  #   foreach (`git rev-list $oldrev..$newrev`)
+  #   {
+  #     push @commits, $_;
+  #   }
+  # }
