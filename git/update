@@ -7,7 +7,8 @@
 # server.
 
 # To add a check, find a spot in "check_log_style", and add your own
-# chunk. You have to add your errors in the @errors. Without newline.
+# chunk. You have to add your errors to @errors. The format is the
+# message without a newline at the end.
 
 use strict;
 
@@ -15,8 +16,7 @@ use strict;
 (my $ME = $0) =~ s|.*/||;
 
 # The list of ignored files... Add your own here.
-my @IGNORED_FILES = ("ChangeLog", ".gitignore", "NEWS",
-    "THANKS");
+my @IGNORED_FILES = qw/ChangeLog .gitignore NEWS THANKS/;
 
 
 # Internal global.
@@ -84,10 +84,13 @@ sub check_log_style($$$)
 
 
   # Now we check if there is a first-line summary.
-  # We reuse the trick used in vc-dwim. If the first line contain
-  # a star, it means there is nno one-line summary.
-  push @error, "Missing one-line summary." if $message =~ /^[\s\n]*\* /;
-
+  #
+  # Any commit of more than one line should have a one-line summary.
+  # We reuse the trick used in vc-dwim: if the first line starts with
+  # a star, it means there is no one-line summary.
+  my @lines = split(/\n/, $message);
+  push @error, "Missing one-line summary."
+    if ($#lines > 0) && ($message =~ /^[\s\n]*\* /);
 
   # Now we check the style of the "* file (func):". The way we choose is
   # to check if we have:
@@ -120,6 +123,9 @@ sub check_log_style($$$)
 
   # Print the results of the check.
   print STDERR "* Invalid message for commit $sha:\n" if ($#error + 1);
+
+  $message =~ s/^/| /gm;
+  print STDERR $message;
 
   foreach (@error)
   {
