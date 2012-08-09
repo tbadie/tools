@@ -17,3 +17,13 @@ This script is intended to check the format of the log message.
 - There is less than 72 columns in the log message.
 - There must be a title.
 - No space before the semicolon (in French, there is one).
+
+* debug/
+
+** dmesg.sh
+
+   This script was written for finding the address of a faulty
+   instruction in a library that causes segmentation fault.
+
+   A full description of what it is, how it works can be found in my
+   blog: FIXME_LINK.
