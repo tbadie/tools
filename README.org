@@ -18,6 +18,9 @@ This script is intended to check the format of the log message.
 - There must be a title.
 - No space before the semicolon (in French, there is one).
 
+I explain this on my blog:
+http://enki-tech.blogspot.fr/2012/03/if-changelog-is-really-obsolete-how-to.html
+
 * debug/
 
 ** dmesg.sh
@@ -26,4 +29,5 @@ This script is intended to check the format of the log message.
    instruction in a library that causes segmentation fault.
 
    A full description of what it is, how it works can be found in my
-   blog: FIXME_LINK.
+   blog:
+   http://enki-tech.blogspot.fr/2012/08/debugging-c-part-3-dmesg.html.
