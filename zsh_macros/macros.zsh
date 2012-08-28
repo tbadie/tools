@@ -95,7 +95,6 @@ __zmacros-add-to-file()
 }
 
 # Helpers
-
 __zmacros-exec_file()
 {
     $1
@@ -155,6 +154,8 @@ macro-record()
     export ZMACROS_TEMPFILE=$(mktemp)
     __zmacros-register-file
 
+    zle reset-prompt
+
     echo "#! /usr/bin/zsh" > $ZMACROS_TEMPFILE
 }
 
@@ -163,6 +164,7 @@ macro-end()
     chmod +x $ZMACROS_TEMPFILE
     add-zsh-hook -d preexec __zmacros-add-to-file
     ZMACROS_INFO=""
+    zle reset-prompt
 }
 
 macro-execute()
