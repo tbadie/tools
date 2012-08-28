@@ -31,3 +31,22 @@ http://enki-tech.blogspot.fr/2012/03/if-changelog-is-really-obsolete-how-to.html
    A full description of what it is, how it works can be found in my
    blog:
    http://enki-tech.blogspot.fr/2012/08/debugging-c-part-3-dmesg.html.
+
+* zsh_macros
+
+  Here is a module for zsh. It starts with the idea that sometimes,
+  you have to create little script, useful for one, two or more hours,
+  and it is boring to write a script for that. So what about a simple
+  method to create some temporary scripts?
+
+  I am a huge fan of Emacs, and I wrote this module with the Emacs
+  macro system in mind. So with this, you can:
+
+  - Create several macros;
+  - Use one of the macro previously recorded;
+  - Register the macro for using it later;
+  - Remove all the recorded macros;
+  - Having a flag in the RPrompt that indicates whether we are
+    recording a macro and its id.
+
+  All the temporary files are stored in '/tmp'.
