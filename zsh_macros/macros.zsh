@@ -8,9 +8,9 @@
 #    * Redistributions in binary form must reproduce the above copyright
 #      notice, this list of conditions and the following disclaimer in the
 #      documentation and/or other materials provided with the distribution.
-#    * Neither the name of the <organization> nor the
-#      names of its contributors may be used to endorse or promote products
-#      derived from this software without specific prior written permission.
+#    * The names of its contributors may not be used to endorse or promote
+#      products derived from this software without specific prior
+#      written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY THOMAS BADIE "AS IS" AND ANY EXPRESS OR
 # IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -38,6 +38,8 @@ export ZMACROS_INFO=""
 
 __zmacros-get-new-counter()
 {
+    # This awk snippet returns the max id of the master file. If there
+    # is an error (file does not exist...), id is equal to 0.
     local id=`awk 'BEGIN{ max=0; } { if ($2 > max) max = $2; }
                    END{ print max }' $ZMACROS_MASTERFILE 2> /dev/null || echo 0`
 
@@ -54,6 +56,7 @@ __zmacros-register-file()
     local filename=$ZMACROS_TEMPFILE
     local id=`__zmacros-get-new-counter`
 
+    # Actualize the INFO with the id of this macro.
     ZMACROS_INFO="R$id"
 
     echo "$filename $id" >> $ZMACROS_MASTERFILE
@@ -72,6 +75,8 @@ __zmacros-get-file()
         if [ -f "$ZMACROS_MASTERFILE" ]
         then
             tail -1 $ZMACROS_MASTERFILE | awk '{print $1}'
+        else
+            echo "No macro recorded." 1>&2
         fi
     else
 
@@ -104,7 +109,7 @@ __zmacros-cp_file()
 {
     local new_name;
 
-    echo "Enter the name you want to give."
+    echo "Please, enter the name you want to give"
     read new_name;
 
     if [ ! -d "$ZMACROS_DIRECTORY" ]
@@ -145,6 +150,21 @@ __zmacros-template-apply()
 }
 
 
+# Wrappers around the interface. These two functions are aimed to be
+# used as widget.
+__zmacros-macro-record-widget()
+{
+    macro-record
+    zle reset-prompt
+}
+
+__zmacros-macro-end-widget()
+{
+    macro-end
+
+    zle reset-prompt
+}
+
 
 # Interface of the module
 macro-record()
@@ -154,8 +174,6 @@ macro-record()
     export ZMACROS_TEMPFILE=$(mktemp)
     __zmacros-register-file
 
-    zle reset-prompt
-
     echo "#! /usr/bin/zsh" > $ZMACROS_TEMPFILE
 }
 
@@ -164,7 +182,6 @@ macro-end()
     chmod +x $ZMACROS_TEMPFILE
     add-zsh-hook -d preexec __zmacros-add-to-file
     ZMACROS_INFO=""
-    zle reset-prompt
 }
 
 macro-execute()
@@ -185,15 +202,15 @@ macro-remove-all()
 
 
 # Declare these functions as widgets, so we can bind them easily.
-zle -N macro-record
-zle -N macro-end
+zle -N __zmacros-macro-record-widget
+zle -N __zmacros-macro-end-widget
 
-# Bind to the Emacs binding.
+# Bind to the Emacs binding if not already in use.
 if [ "undefined-key" =  "$(bindkey '^X(' | awk '{print $2}')" -a \
     "undefined-key" = "$(bindkey '^X)'  | awk '{print $2}')" ]
 then
-    bindkey '^X(' macro-record                      # ctrl-x (
-    bindkey '^X)' macro-end                         # ctrl-x )
+    bindkey '^X(' __zmacros-macro-record-widget               # ctrl-x (
+    bindkey '^X)' __zmacros-macro-end-widget                  # ctrl-x )
 else
     echo "Warning: Bindings for macro-{record,end} already used." 1>&2
 fi
@@ -205,8 +222,8 @@ then
 fi
 
 # This function is aimed to be added in your RPROMPT. That prints
-# "<R${macro_id}>" in color. It is printed one command after the
-# beginning of the recording, and finish one command after the end.
+# "<R${macro_id}>" in color. It is adapted as soon as you have call
+# macro-record.
 zmacros_info_wrapper()
 {
     if [ -n "${ZMACROS_INFO}" ]
@@ -219,6 +236,6 @@ zmacros_info_wrapper()
 # following line:
 # RPROMT='$(zmacros_info_wrapper)'
 
-# Note that the single quote is *mandatory*. It allows the function to
+# Note that the single quotes are *mandatory*. It allows the function to
 # be called before each new prompt. This behavior is due to the
 # prompt_subst option.
