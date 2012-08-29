@@ -50,3 +50,6 @@ http://enki-tech.blogspot.fr/2012/03/if-changelog-is-really-obsolete-how-to.html
     recording a macro and its id.
 
   All the temporary files are stored in '/tmp'.
+
+  You may see my [[http://enki-tech.blogspot.fr/2012/08/zsh-macros.html][blog post]] that presents this concept.
+
